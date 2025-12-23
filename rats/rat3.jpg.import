@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://btihkmvcsbjrm"
-path="res://.godot/imported/lataus (2).jpg-7fae8ca0995fa7a8e8f860b7e49dcf47.ctex"
+uid="uid://b6agqpljp8mkg"
+path="res://.godot/imported/rat3.jpg-ef772febdb5454cd495f8d93b639e06c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://images/lataus (2).jpg"
-dest_files=["res://.godot/imported/lataus (2).jpg-7fae8ca0995fa7a8e8f860b7e49dcf47.ctex"]
+source_file="res://rats/rat3.jpg"
+dest_files=["res://.godot/imported/rat3.jpg-ef772febdb5454cd495f8d93b639e06c.ctex"]
 
 [params]
 
