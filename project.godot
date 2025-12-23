@@ -11,5 +11,10 @@ config_version=5
 [application]
 
 config/name="Rat in the Fridge"
+run/main_scene="uid://bq0xih6dx8sjp"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_super-wakatime/plugin.cfg")
