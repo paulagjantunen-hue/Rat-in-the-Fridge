@@ -28,3 +28,9 @@ func _on_fridge_pressed() -> void:
 
 func _process(delta):
 	rat.scale = rat.scale.lerp(Vector2.ONE, 8 * delta)
+
+
+func _on_idle_timer_timeout() -> void:
+	leftovers += 1
+	update_label()
+	rat.scale = Vector2(1.05, 0.95) # smaller squish than click

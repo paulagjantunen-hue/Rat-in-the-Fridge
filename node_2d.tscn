@@ -29,4 +29,8 @@ stream = ExtResource("2_epypp")
 position = Vector2(429, 518)
 texture = ExtResource("4_0hol4")
 
+[node name="IdleTimer" type="Timer" parent="."]
+autostart = true
+
 [connection signal="pressed" from="Fridge" to="." method="_on_fridge_pressed"]
+[connection signal="timeout" from="IdleTimer" to="." method="_on_idle_timer_timeout"]
