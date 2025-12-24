@@ -29,7 +29,7 @@ var sounds := [
 @onready var fridge_button = $Fridge
 @onready var upgrade_button = $UpgradeButton
 @onready var prestige_button = $PrestigeButton
-@onready var label_leftovers = $Label_Leftovers
+@onready var label_leftovers = $LeftoversLabel
 @onready var label_fridge = $Label_FridgeLevel
 @onready var label_prestige = $Label_Prestige
 @onready var idle_timer = $IdleTimer
@@ -44,9 +44,19 @@ func _ready():
 
 # --- Rat Squish Animation ---
 func play_rat_squish(scale_x: float, scale_y: float):
-	tween.stop_all()
-	tween.tween_property(rat, "scale", Vector2(scale_x, scale_y), 0.1, Tween.TRANS_SINE, Tween.EASE_OUT)
-	tween.tween_property(rat, "scale", Vector2(1,1), 0.2, Tween.TRANS_SINE, Tween.EASE_IN, 0.1)
+	var tween := create_tween()
+	tween.tween_property(
+		rat,
+		"scale",
+		Vector2(scale_x, scale_y),
+		0.1
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		rat,
+		"scale",
+		Vector2.ONE,
+		0.2
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 # --- Random Sound Playback ---
 func play_random_sound():
@@ -77,8 +87,8 @@ func check_sound_unlock():
 # --- Update UI Labels ---
 func update_labels():
 	label_leftovers.text = "Leftovers: %d" % leftovers
-	label_fridge.text = "Fridge Level: %d" % fridge_level
-	label_prestige.text = "Prestige: %d" % prestige_points
+	upgrade_button.text = "Fridge Level: %d" % fridge_level
+	prestige_button.text = "Prestige: %d" % prestige_points
 
 # --- Save / Load ---
 func save_game():
