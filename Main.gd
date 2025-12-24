@@ -1,0 +1,269 @@
+extends Node2D
+
+# --- Variables ---
+var leftovers: int = 0
+var fridge_level: int = 1
+var prestige_points: int = 0
+var prestige_multiplier: float = 1.0
+var current_sound_index: int = 0
+const SAVE_PATH := "user://save.json"
+var rat_stage: int = 0
+
+# --- Load Rat Sprites ---
+var rat_sprites := [
+	preload("res://rats/rat1.jpg"),
+	preload("res://rats/rat2.jpg"),
+	preload("res://rats/rat3.jpg"),
+	preload("res://rats/rat4.jpg")
+]
+
+# --- Load Sounds ---
+# Xylophone / rat sounds
+var click_sound: AudioStream = preload("res://sounds/click.wav")
+var squeak_sound: AudioStream = preload("res://sounds/squeak.wav")
+var xylophone_sounds: Array[AudioStream] = [
+	preload("res://sounds/note1.wav"),
+	preload("res://sounds/note2.wav"),
+	preload("res://sounds/note3.wav"),
+	preload("res://sounds/note4.wav")
+]
+
+
+# --- Node References ---
+@onready var rat = $Rat
+@onready var fridge_button = $Fridge
+@onready var upgrade_button = $UpgradeButton
+@onready var prestige_button = $PrestigeButton
+@onready var label_leftovers = $LeftoversLabel
+@onready var label_fridge = $Label_FridgeLevel
+@onready var label_prestige: Label = $Label_Prestige
+@onready var idle_timer = $IdleTimer
+@onready var tween = $RatTween
+@onready var sounds = AudioStreamPlayer2D.new()
+@onready var sound = AudioStreamPlayer2D.new()
+@onready var floating_text_scene = preload("res://FloatingText.tscn")
+@onready var label_upgrade_cost = $Label_UpgradeCost
+@onready var prestige_flash: ColorRect = $PrestigeFlash
+@onready var evolution_particles: GPUParticles2D = $Rat/EvolutionParticles
+
+func _ready():
+	add_child(sound)
+	load_game()
+	update_labels()
+	idle_timer.start()
+	start_rat_idle()
+
+# --- Rat Squish Animation ---
+func play_rat_squish(scale_x: float, scale_y: float):
+	var tween := create_tween()
+	tween.tween_property(
+		rat,
+		"scale",
+		Vector2(scale_x, scale_y),
+		0.1
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		rat,
+		"scale",
+		Vector2.ONE,
+		0.2
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+# --- Random Sound Playback ---
+func play_random_sound():
+	var max_index: int = min(current_sound_index, xylophone_sounds.size() - 1)
+	var random_index: int = randi() % xylophone_sounds.size()
+
+	sound.stream = xylophone_sounds[random_index]
+	sound.play()
+
+# --- Update Rat Sprite ---
+func update_rat_sprite():
+	var new_stage: int = 0
+	if leftovers < 10:
+		new_stage = 0
+	elif leftovers < 25:
+		new_stage = 1
+	elif leftovers < 50:
+		new_stage = 2
+	else:
+		new_stage = 3
+	if new_stage != rat_stage:
+		rat_stage = new_stage
+		flash_rat_evolution()
+	rat.texture = rat_sprites[rat_stage]
+
+# --- Check Sound Unlock ---
+func check_sound_unlock():
+	var new_index = min(int(leftovers / 10), xylophone_sounds.size() - 1)
+	if new_index != current_sound_index:
+		current_sound_index = new_index
+		sound.stream = xylophone_sounds[current_sound_index]
+
+# --- Update UI Labels ---
+func update_labels():
+	label_leftovers.text = "Leftovers: %d" % leftovers
+	upgrade_button.text = "Fridge Level: %d" % fridge_level
+	prestige_button.text = "Prestige: %d" % prestige_points
+	label_upgrade_cost.text = "Upgrade Cost: %d" % (50 * fridge_level)
+	label_prestige.text = "Prestige: %d (x%.1f)" % [prestige_points, prestige_multiplier]
+
+# --- Save / Load ---
+func save_game():
+	var data = {
+		"leftovers": leftovers,
+		"fridge_level": fridge_level,
+		"prestige_points": prestige_points,
+		"current_sound_index": current_sound_index,
+		"last_play_time": Time.get_unix_time_from_system()
+	}
+
+	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	file.store_string(JSON.stringify(data))
+	file.close()
+
+
+func load_game():
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+
+	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var content = file.get_as_text()
+	file.close()
+
+	var data = JSON.parse_string(content)
+	if data == null:
+		return
+
+	leftovers = data.get("leftovers", 0)
+	fridge_level = data.get("fridge_level", 1)
+	prestige_points = data.get("prestige_points", 0)
+	current_sound_index = data.get("current_sound_index", 0)
+
+	var last_play_time: float = data.get("last_play_time", Time.get_unix_time_from_system())
+
+	# get current time
+	var now: float = Time.get_unix_time_from_system()
+
+	# seconds elapsed
+	var elapsed_seconds: int = int(now - last_play_time)
+	elapsed_seconds = min(elapsed_seconds, 3600) # optional cap
+
+	leftovers += elapsed_seconds * int(fridge_level * prestige_multiplier)
+
+	update_labels()
+	sound.stream = xylophone_sounds[current_sound_index]
+	update_rat_sprite()
+
+
+func _on_fridge_button_up() -> void:
+	var gain = int(fridge_level * prestige_multiplier)
+	leftovers += gain
+	update_labels()
+	check_sound_unlock()
+	update_rat_sprite()
+	play_rat_squish(1.1, 0.9)
+	play_random_sound()
+	save_game()
+	spawn_floating_text(gain, fridge_button.global_position)
+
+func _on_upgrade_button_pressed() -> void:
+	var upgrade_cost: int  = 50 * fridge_level
+	if leftovers < upgrade_cost:
+		return
+	leftovers -= upgrade_cost
+	fridge_level += 1
+	shake_fridge()
+	update_labels()
+	save_game()
+
+
+func _on_prestige_button_pressed() -> void:
+	if leftovers < 100:
+		return
+	prestige_points += 1
+	prestige_multiplier = 1.0 + prestige_points * 0.1
+	leftovers = 0
+	fridge_level = 1
+	current_sound_index = 0
+	play_prestige_flash()
+	update_labels()
+	save_game()
+
+
+func _on_idle_timer_timeout() -> void:
+	var gain = int(fridge_level * prestige_multiplier)
+	leftovers += gain
+	update_labels()
+	check_sound_unlock()
+	update_rat_sprite()
+	play_rat_squish(1.05, 0.95)
+	play_random_sound()
+	save_game()
+
+func spawn_floating_text(amount: int, world_pos: Vector2):
+	var ft = floating_text_scene.instantiate()
+	ft.text = "+%d" % amount
+	ft.global_position = world_pos
+	add_child(ft)
+
+func shake_fridge():
+	var tween := create_tween()
+	var original_pos: Vector2 = fridge_button.position
+	tween.tween_property(
+		fridge_button,
+		"position",
+		original_pos + Vector2(6, 0),
+		0.05
+	).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(
+		fridge_button,
+		"position",
+		original_pos - Vector2(6, 0),
+		0.05
+	)
+	tween.tween_property(
+		fridge_button,
+		"position",
+		original_pos,
+		0.05
+	)
+
+func play_prestige_flash():
+	var tween := create_tween()
+	prestige_flash.modulate.a = 0.0
+	tween.tween_property(prestige_flash, "modulate:a", 0.8, 0.1)
+	tween.tween_property(prestige_flash, "modulate:a", 0.0, 0.3)
+
+func start_rat_idle():
+	var tween := create_tween()
+	tween.set_loops()
+	tween.tween_property(
+		rat,
+		"scale",
+		Vector2(1.05, 0.95),
+		1.2
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(
+		rat,
+		"scale",
+		Vector2(1.0, 1.0),
+		1.2
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func flash_rat_evolution():
+	var tween := create_tween()
+	rat.modulate = Color(1, 1, 1)
+	evolution_particles.restart()
+	tween.tween_property(
+		rat,
+		"modulate",
+		Color(1.2, 1.2, 1.2),
+		0.1
+	)
+	tween.tween_property(
+		rat,
+		"modulate",
+		Color(1, 1, 1),
+		0.2
+	)
